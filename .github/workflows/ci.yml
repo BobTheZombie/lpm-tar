@@ -8,19 +8,26 @@ jobs:
         compiler: [gcc, clang]
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y build-essential clang gettext libacl1-dev libattr1-dev texinfo
+      - run: sudo apt-get update && sudo apt-get install -y build-essential clang llvm lld gettext libacl1-dev libattr1-dev texinfo
       - name: Generic optimized build
-        run: FORCE_UNSAFE_CONFIGURE=1 CC=${{ matrix.compiler }} JOBS=4 lpm/build.sh generic
+        run: |
+          if [ "${{ matrix.compiler }}" = clang ]; then
+            export CC=/usr/bin/clang AR=/usr/bin/llvm-ar RANLIB=/usr/bin/llvm-ranlib
+            export LDFLAGS='-flto -fuse-ld=/usr/bin/ld.lld'
+          else
+            export CC=gcc
+          fi
+          FORCE_UNSAFE_CONFIGURE=1 JOBS=4 lpm/build.sh generic
       - name: GNU tar regression suite
         run: make -C build-generic -j4 check
       - name: Checksum differential tests
         run: |
-          ${{ matrix.compiler }} -O3 lpm/checksum-test.c -o /tmp/checksum-test
+          /usr/bin/${{ matrix.compiler }} -O3 lpm/checksum-test.c -o /tmp/checksum-test
           /tmp/checksum-test
           LPM_TAR_SCALAR=1 /tmp/checksum-test
       - name: Extraction and write error regression tests
         run: |
-          ${{ matrix.compiler }} -shared -fPIC lpm/write-faults.c -ldl -o /tmp/write-faults.so
+          /usr/bin/${{ matrix.compiler }} -shared -fPIC lpm/write-faults.c -ldl -o /tmp/write-faults.so
           LPM_TEST_INTERPOSER=/tmp/write-faults.so python3 lpm/test.py build-generic/src/tar
       - uses: actions/upload-artifact@v4
         if: always()

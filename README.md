@@ -42,6 +42,9 @@ build-znver2/src/tar --threads=4 --no-same-owner -xf archive.tar -C destination
 Use an absolute archive path when appropriate for `-C`. `LPM_TAR_THREADS=4`
 is an alternative to the command-line flag. Invalid values are rejected.
 `LPM_TAR_SCALAR=1` forces the portable checksum path for testing.
+Clang LTO builds require matching LLVM archive tools and linker; for example
+set `CC=/usr/bin/clang AR=/usr/bin/llvm-ar RANLIB=/usr/bin/llvm-ranlib`
+and `LDFLAGS="-flto -fuse-ld=/usr/bin/ld.lld"`.
 No installation is performed by the build script. Build as an ordinary user;
 GNU configure requires `FORCE_UNSAFE_CONFIGURE=1` if building as root.
 Profiles above Zen 2 should not be used for packages intended for the 4500U.
