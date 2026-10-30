@@ -8,6 +8,9 @@ glibc 2.39. This is not a physical Ryzen system.
 * Meson setup followed by direct Ninja compilation built tar, rmt, support
   libraries, and Autotest helpers from individual C sources. Gnulib's shipped
   configure probes remain in setup; no GNU Make compilation wrapper is used.
+* Configure probes explicitly use Meson's selected C standard and large-file
+  mode. This avoids GCC 15/16 defaulting to C23 during probing but compiling as
+  GNU C11, which otherwise leaves boolean compatibility definitions inconsistent.
 * Four Meson core tests passed: dispatched/scalar checksums, extraction with
   injected write faults, and gzip/pigz integration.
 * The upstream suite ran directly through Meson/Autotest with four workers:

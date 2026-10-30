@@ -46,7 +46,12 @@ foreach feature : ['acl', 'selinux']
 endforeach
 cfg = meson.project_build_root() / 'gnulib-config'
 bridge = files('meson/gnulib-configure.py')
-probe_flags = get_option('c_args') + cpu_args + ['-O2', '-pthread']
+probe_flags = get_option('c_args') + cpu_args + ['-O2', '-pthread', '-D_FILE_OFFSET_BITS=64']
+# Configure must see the same language mode as Ninja. New GCC defaults to C23,
+# where bool is a keyword, while our selected GNU C11 needs gnulib's bool setup.
+if get_option('c_std') != 'none'
+  probe_flags += '-std=' + get_option('c_std')
+endif
 probe_ldflags = get_option('c_link_args')
 run_command(py, bridge,
   '--source', meson.project_source_root(), '--build', meson.project_build_root(),
