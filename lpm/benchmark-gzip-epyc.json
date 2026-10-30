@@ -1,0 +1,70 @@
+{
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.39",
+  "cpu": "AMD EPYC 9V74 80-Core Processor",
+  "mib": 128,
+  "runs": 3,
+  "threads": 4,
+  "workload": "64 KiB repeated units, half deterministic random bytes, half repeated text/binary; warm cache, no fsync",
+  "results": [
+    {
+      "backend": "gzip",
+      "compression_seconds": [
+        1.9808212059997459,
+        1.9463296160001846,
+        1.8246066819997395
+      ],
+      "decompression_seconds": [
+        0.6524483270000019,
+        0.6664234130003024,
+        0.6666997129996162
+      ],
+      "compressed_bytes": [
+        67903343,
+        67903343,
+        67903343
+      ],
+      "median_compression": 1.9463296160001846,
+      "median_decompression": 0.6664234130003024
+    },
+    {
+      "backend": "pigz-system-zlib",
+      "compression_seconds": [
+        0.5147483910000119,
+        0.5384572650000337,
+        0.5044929410000805
+      ],
+      "decompression_seconds": [
+        0.3011174140001458,
+        0.2481776629997512,
+        0.2324607109999306
+      ],
+      "compressed_bytes": [
+        67843197,
+        67843197,
+        67843197
+      ],
+      "median_compression": 0.5147483910000119,
+      "median_decompression": 0.2481776629997512
+    },
+    {
+      "backend": "pigz-zlib-ng",
+      "compression_seconds": [
+        0.43450680700016164,
+        0.43449142300005406,
+        0.4461387060000561
+      ],
+      "decompression_seconds": [
+        0.19871668799987674,
+        0.20824711300019771,
+        0.26648806200000763
+      ],
+      "compressed_bytes": [
+        68057214,
+        68057214,
+        68057214
+      ],
+      "median_compression": 0.43450680700016164,
+      "median_decompression": 0.20824711300019771
+    }
+  ]
+}

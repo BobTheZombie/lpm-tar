@@ -24,6 +24,8 @@
 #include <signal.h>
 #include <wordsplit.h>
 
+#include "gzip-backend.h"
+
 static _Noreturn void
 xexec (const char *cmd)
 {
@@ -399,6 +401,7 @@ sys_child_open_for_compress (void)
 	  xdup2 (archive, STDOUT_FILENO);
 	}
       priv_set_restore_linkdir ();
+      lpm_try_pigz (use_compress_program_option, false);
       xexec (use_compress_program_option);
     }
 
@@ -416,6 +419,7 @@ sys_child_open_for_compress (void)
       xdup2 (child_pipe[PWRITE], STDOUT_FILENO);
       xclose (child_pipe[PREAD]);
       priv_set_restore_linkdir ();
+      lpm_try_pigz (use_compress_program_option, false);
       xexec (use_compress_program_option);
     }
 
@@ -506,6 +510,7 @@ run_decompress_program (void)
 	  WARNOPT (WARN_DECOMPRESS_PROGRAM,
 		   (0, 0, _("trying %s"), p));
 	}
+      lpm_try_pigz (p, true);
       if (wordsplit (p, &ws, wsflags))
 	FATAL_ERROR ((0, 0, _("cannot split string '%s': %s"),
 		      p, wordsplit_strerror (&ws)));

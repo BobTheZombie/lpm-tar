@@ -1,0 +1,29 @@
+{
+  "cpu": "AMD EPYC 9V74",
+  "compiler": "gcc -O3, generic x86-64 baseline",
+  "headers_per_trial": 10000000,
+  "working_set_bytes": 2097152,
+  "unaligned": true,
+  "trials": [
+    {
+      "previous-dual-simd": 0.170048885,
+      "portable-unsigned": 0.442961679,
+      "dispatched-unsigned-asm": 0.066746609
+    },
+    {
+      "previous-dual-simd": 0.169508523,
+      "portable-unsigned": 0.433057405,
+      "dispatched-unsigned-asm": 0.072825706
+    },
+    {
+      "previous-dual-simd": 0.156554078,
+      "portable-unsigned": 0.41898578,
+      "dispatched-unsigned-asm": 0.077098369
+    }
+  ],
+  "median_seconds": {
+    "previous-dual-simd": 0.169508523,
+    "portable-unsigned": 0.433057405,
+    "dispatched-unsigned-asm": 0.072825706
+  }
+}

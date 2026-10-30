@@ -1,42 +1,63 @@
-/* LPM tar header checksum dispatch. GPL-3.0-or-later. */
+/* LPM tar header checksums. GPL-3.0-or-later.
+   The assembly reads exactly one 512-byte header, including unaligned input. */
 #if defined __x86_64__ && defined __GNUC__
-#include <immintrin.h>
-__attribute__ ((target ("avx2")))
-static void
-lpm_sum_avx2 (unsigned char const *p, int *u, int *s)
+__attribute__ ((target ("avx2"), noinline))
+static int
+lpm_unsigned_avx2 (unsigned char const *p)
 {
-  __m256i sum = _mm256_setzero_si256 ();
-  __m256i high = _mm256_setzero_si256 ();
-  __m256i zero = _mm256_setzero_si256 ();
-  unsigned long long a[4], b[4];
-  unsigned i;
-  for (i = 0; i < 512; i += 32) {
-    __m256i v = _mm256_loadu_si256 ((void const *)(p+i));
-    sum = _mm256_add_epi64 (sum, _mm256_sad_epu8 (v, zero));
-    high = _mm256_add_epi64 (high, _mm256_sad_epu8 (
-      _mm256_and_si256 (_mm256_cmpgt_epi8 (zero, v),
-                        _mm256_set1_epi8 (1)), zero));
-  }
-  _mm256_storeu_si256 ((void *)a, sum);
-  _mm256_storeu_si256 ((void *)b, high);
-  *u = a[0]+a[1]+a[2]+a[3];
-  *s = *u - 256 * (b[0]+b[1]+b[2]+b[3]);
+  int sum, loops = 4;
+  __asm__ (
+    "vpxor %%ymm0, %%ymm0, %%ymm0\n\t"
+    "vpxor %%ymm1, %%ymm1, %%ymm1\n\t"
+    "vpxor %%ymm2, %%ymm2, %%ymm2\n\t"
+    "vpxor %%ymm3, %%ymm3, %%ymm3\n\t"
+    "vpxor %%ymm4, %%ymm4, %%ymm4\n\t"
+    "1:\n\t"
+    "vpsadbw 0(%[p]), %%ymm0, %%ymm5\n\t"
+    "vpaddq %%ymm5, %%ymm1, %%ymm1\n\t"
+    "vpsadbw 32(%[p]), %%ymm0, %%ymm5\n\t"
+    "vpaddq %%ymm5, %%ymm2, %%ymm2\n\t"
+    "vpsadbw 64(%[p]), %%ymm0, %%ymm5\n\t"
+    "vpaddq %%ymm5, %%ymm3, %%ymm3\n\t"
+    "vpsadbw 96(%[p]), %%ymm0, %%ymm5\n\t"
+    "vpaddq %%ymm5, %%ymm4, %%ymm4\n\t"
+    "add $128, %[p]\n\t"
+    "dec %[loops]\n\t"
+    "jnz 1b\n\t"
+    "vpaddq %%ymm2, %%ymm1, %%ymm1\n\t"
+    "vpaddq %%ymm4, %%ymm3, %%ymm3\n\t"
+    "vpaddq %%ymm3, %%ymm1, %%ymm1\n\t"
+    "vextracti128 $1, %%ymm1, %%xmm2\n\t"
+    "vpaddq %%xmm2, %%xmm1, %%xmm1\n\t"
+    "vpsrldq $8, %%xmm1, %%xmm2\n\t"
+    "vpaddq %%xmm2, %%xmm1, %%xmm1\n\t"
+    "vmovd %%xmm1, %[sum]\n\t"
+    "vzeroupper"
+    : [sum] "=r" (sum), [p] "+r" (p), [loops] "+r" (loops)
+    : : "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "cc", "memory");
+  return sum;
 }
 #endif
-static void
-lpm_header_sum (unsigned char const *p, int *u, int *s)
+static int
+lpm_header_unsigned (unsigned char const *p)
 {
   unsigned i;
+  int sum = 0;
 #if defined __x86_64__ && defined __GNUC__
-  /* Header parsing is serialized; cache dispatch outside the hot loop. */
+  /* Only the serialized archive parser calls this dispatch function. */
   static int avx2 = -1;
   if (avx2 < 0)
     avx2 = !!__builtin_cpu_supports ("avx2") && !getenv ("LPM_TAR_SCALAR");
-  if (avx2) {
-    lpm_sum_avx2 (p, u, s);
-    return;
-  }
+  if (avx2) return lpm_unsigned_avx2 (p);
 #endif
-  *u = *s = 0;
-  for (i = 0; i < 512; ++i) { *u += p[i]; *s += (signed char)p[i]; }
+  for (i = 0; i < 512; ++i) sum += p[i];
+  return sum;
+}
+static int
+lpm_header_signed (unsigned char const *p)
+{
+  unsigned i;
+  int sum = 0;
+  for (i = 0; i < 512; ++i) sum += (signed char)p[i];
+  return sum;
 }

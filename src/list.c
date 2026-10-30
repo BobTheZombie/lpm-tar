@@ -355,8 +355,7 @@ tar_checksum (union block *header, bool silent)
   int signed_sum = 0;		/* the Sun one :-( */
   int recorded_sum;
   int parsed_sum;
-  lpm_header_sum ((unsigned char const *)header->buffer,
-                  &unsigned_sum, &signed_sum);
+  unsigned_sum = lpm_header_unsigned ((unsigned char const *)header->buffer);
 
   if (unsigned_sum == 0)
     return HEADER_ZERO_BLOCK;
@@ -366,10 +365,8 @@ tar_checksum (union block *header, bool silent)
   for (i = sizeof header->header.chksum; i-- != 0;)
     {
       unsigned_sum -= (unsigned char) header->header.chksum[i];
-      signed_sum -= (signed char) (header->header.chksum[i]);
     }
   unsigned_sum += ' ' * sizeof header->header.chksum;
-  signed_sum += ' ' * sizeof header->header.chksum;
 
   parsed_sum = from_header (header->header.chksum,
 			    sizeof header->header.chksum, 0,
@@ -379,8 +376,16 @@ tar_checksum (union block *header, bool silent)
 
   recorded_sum = parsed_sum;
 
-  if (unsigned_sum != recorded_sum && signed_sum != recorded_sum)
-    return HEADER_FAILURE;
+  if (unsigned_sum != recorded_sum)
+    {
+      /* Legacy signed-byte archives are rare. Avoid this reduction on the
+         common POSIX path, retaining compatibility for high-bit filenames. */
+      signed_sum = lpm_header_signed ((unsigned char const *)header->buffer);
+      for (i = sizeof header->header.chksum; i-- != 0;)
+        signed_sum -= (signed char)header->header.chksum[i];
+      signed_sum += ' ' * sizeof header->header.chksum;
+      if (signed_sum != recorded_sum) return HEADER_FAILURE;
+    }
 
   return HEADER_SUCCESS;
 }

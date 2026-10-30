@@ -271,6 +271,9 @@ tar_set_quoting_style (char *arg)
 enum
 {
   LPM_THREADS_OPTION = CHAR_MAX + 1,
+  LPM_GZIP_BACKEND_OPTION,
+  LPM_PIGZ_OPTION,
+  LPM_COMPRESSION_THREADS_OPTION,
   ACLS_OPTION,
   ATIME_PRESERVE_OPTION,
   BACKUP_OPTION,
@@ -444,6 +447,11 @@ enum
   };
 
 static struct argp_option options[] = {
+  {"gzip-backend", LPM_GZIP_BACKEND_OPTION, "auto|gzip|pigz", 0,
+   N_("select gzip filter (default: pigz if installed, otherwise gzip)"), 0},
+  {"pigz", LPM_PIGZ_OPTION, 0, 0, N_("use gzip format and require pigz"), 0},
+  {"compression-threads", LPM_COMPRESSION_THREADS_OPTION, "N", 0,
+   N_("set pigz thread count, 1..32 (default: --threads or CPU count)"), 0},
   {"threads", LPM_THREADS_OPTION, "N", 0,
    N_("use 1..32 extraction workers for large regular files"), 0},
 
@@ -1371,6 +1379,19 @@ parse_opt (int key, char *arg, struct argp_state *state)
 
   switch (key)
     {
+    case LPM_GZIP_BACKEND_OPTION:
+      if (strcmp (arg, "auto") == 0) lpm_gzip_backend_option = 0;
+      else if (strcmp (arg, "gzip") == 0) lpm_gzip_backend_option = 1;
+      else if (strcmp (arg, "pigz") == 0) lpm_gzip_backend_option = 2;
+      else USAGE_ERROR ((0, 0, "--gzip-backend requires auto, gzip, or pigz"));
+      break;
+
+    case LPM_PIGZ_OPTION:
+      lpm_gzip_backend_option = 2;
+      set_use_compress_program_option (GZIP_PROGRAM, args->loc);
+      break;
+
+    case LPM_COMPRESSION_THREADS_OPTION:
     case LPM_THREADS_OPTION:
       {
         char *end;
@@ -1378,7 +1399,11 @@ parse_opt (int key, char *arg, struct argp_state *state)
         errno = 0;
         n = strtoul (arg, &end, 10);
         if (errno || !*arg || *end || n < 1 || n > 32)
-          USAGE_ERROR ((0, 0, "--threads requires an integer from 1 to 32"));
+          USAGE_ERROR ((0, 0, "thread count requires an integer from 1 to 32"));
+        if (key == LPM_COMPRESSION_THREADS_OPTION) {
+          lpm_compression_threads_option = n;
+          break;
+        }
         if (setenv ("LPM_TAR_THREADS", arg, 1))
           FATAL_ERROR ((0, errno, "cannot set extraction threads"));
       }
@@ -2096,6 +2121,7 @@ parse_opt (int key, char *arg, struct argp_state *state)
       break;
 
     case 'I':
+      lpm_explicit_filter_option = true;
       set_use_compress_program_option (arg, args->loc);
       break;
 

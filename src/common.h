@@ -142,6 +142,10 @@ GLOBAL unsigned checkpoint_option;
 
 /* Specified name of compression program, or "gzip" as implied by -z.  */
 GLOBAL const char *use_compress_program_option;
+/* 0=auto (pigz then gzip if absent), 1=gzip, 2=required pigz. */
+GLOBAL int lpm_gzip_backend_option;
+GLOBAL unsigned lpm_compression_threads_option;
+GLOBAL bool lpm_explicit_filter_option;
 
 GLOBAL bool dereference_option;
 GLOBAL bool hard_dereference_option;

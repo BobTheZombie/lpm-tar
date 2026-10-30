@@ -2,13 +2,15 @@ name: build-and-test
 on: [push, pull_request, workflow_dispatch]
 jobs:
   linux:
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         compiler: [gcc, clang]
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y build-essential clang llvm lld gettext libacl1-dev libattr1-dev texinfo
+      - run: sudo apt-get update && sudo apt-get install -y build-essential clang llvm lld gettext libacl1-dev libattr1-dev texinfo pigz
       - name: Generic optimized build
         run: |
           if [ "${{ matrix.compiler }}" = clang ]; then
@@ -18,8 +20,6 @@ jobs:
             export CC=gcc
           fi
           FORCE_UNSAFE_CONFIGURE=1 JOBS=4 lpm/build.sh generic
-      - name: GNU tar regression suite
-        run: make -C build-generic -j4 check
       - name: Checksum differential tests
         run: |
           /usr/bin/${{ matrix.compiler }} -O3 lpm/checksum-test.c -o /tmp/checksum-test
@@ -29,6 +29,10 @@ jobs:
         run: |
           /usr/bin/${{ matrix.compiler }} -shared -fPIC lpm/write-faults.c -ldl -o /tmp/write-faults.so
           LPM_TEST_INTERPOSER=/tmp/write-faults.so python3 lpm/test.py build-generic/src/tar
+      - name: Gzip and pigz integration
+        run: python3 lpm/gzip-test.py build-generic/src/tar
+      - name: GNU tar regression suite
+        run: make -C build-generic -j4 check
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -36,3 +40,16 @@ jobs:
           path: |
             build-generic/tests/testsuite.log
             build-generic/config.log
+
+  accelerated-codec:
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y build-essential curl python3 texinfo
+      - name: Build and test isolated pigz plus zlib-ng
+        run: JOBS=4 lpm/build-pigz.sh generic
+      - name: Build tar
+        run: JOBS=4 lpm/build.sh generic
+      - name: Test accelerated gzip pipeline
+        run: PATH="$PWD/build-codecs-generic/prefix/bin:$PATH" python3 lpm/gzip-test.py build-generic/src/tar

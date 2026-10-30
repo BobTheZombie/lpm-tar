@@ -1761,7 +1761,7 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-noinst_HEADERS = arith.h common.h tar.h xattrs.h parallel.h cpu-checksum.h
+noinst_HEADERS = arith.h common.h tar.h xattrs.h parallel.h cpu-checksum.h gzip-backend.h
 tar_SOURCES = \
  buffer.c\
  checkpoint.c\

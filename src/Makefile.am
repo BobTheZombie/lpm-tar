@@ -19,7 +19,7 @@
 
 bin_PROGRAMS = tar
 
-noinst_HEADERS = arith.h common.h tar.h xattrs.h parallel.h cpu-checksum.h
+noinst_HEADERS = arith.h common.h tar.h xattrs.h parallel.h cpu-checksum.h gzip-backend.h
 tar_SOURCES = \
  buffer.c\
  checkpoint.c\
