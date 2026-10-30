@@ -345,6 +345,8 @@ list_archive (void)
    a name containing characters with the high bit set.  So tar_checksum
    computes two checksums -- signed and unsigned.  */
 
+#include "cpu-checksum.h"
+
 enum read_header
 tar_checksum (union block *header, bool silent)
 {
@@ -353,14 +355,8 @@ tar_checksum (union block *header, bool silent)
   int signed_sum = 0;		/* the Sun one :-( */
   int recorded_sum;
   int parsed_sum;
-  char *p;
-
-  p = header->buffer;
-  for (i = sizeof *header; i-- != 0;)
-    {
-      unsigned_sum += (unsigned char) *p;
-      signed_sum += (signed char) (*p++);
-    }
+  lpm_header_sum ((unsigned char const *)header->buffer,
+                  &unsigned_sum, &signed_sum);
 
   if (unsigned_sum == 0)
     return HEADER_ZERO_BLOCK;

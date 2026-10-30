@@ -270,7 +270,8 @@ tar_set_quoting_style (char *arg)
 
 enum
 {
-  ACLS_OPTION = CHAR_MAX + 1,
+  LPM_THREADS_OPTION = CHAR_MAX + 1,
+  ACLS_OPTION,
   ATIME_PRESERVE_OPTION,
   BACKUP_OPTION,
   CHECK_DEVICE_OPTION,
@@ -443,6 +444,9 @@ enum
   };
 
 static struct argp_option options[] = {
+  {"threads", LPM_THREADS_OPTION, "N", 0,
+   N_("use 1..32 extraction workers for large regular files"), 0},
+
   {NULL, 0, NULL, 0,
    N_("Main operation mode:"), GRH_COMMAND },
 
@@ -1367,6 +1371,19 @@ parse_opt (int key, char *arg, struct argp_state *state)
 
   switch (key)
     {
+    case LPM_THREADS_OPTION:
+      {
+        char *end;
+        unsigned long n;
+        errno = 0;
+        n = strtoul (arg, &end, 10);
+        if (errno || !*arg || *end || n < 1 || n > 32)
+          USAGE_ERROR ((0, 0, "--threads requires an integer from 1 to 32"));
+        if (setenv ("LPM_TAR_THREADS", arg, 1))
+          FATAL_ERROR ((0, errno, "cannot set extraction threads"));
+      }
+      break;
+
     case ARGP_KEY_INIT:
       if (state->root_argp->children)
 	{

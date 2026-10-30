@@ -1245,6 +1245,8 @@ open_output_file (char const *file_name, int typeflag, mode_t mode,
   return fd;
 }
 
+#include "parallel.h"
+
 static int
 extract_file (char *file_name, int typeflag)
 {
@@ -1298,6 +1300,29 @@ extract_file (char *file_name, int typeflag)
 	}
     }
 
+  struct lpm_writer writer = {0};
+  unsigned threads = lpm_threads ();
+  struct stat output_stat;
+  if (threads > 1 && !to_stdout_option && !to_command_option
+      && !current_stat_info.is_sparse
+      && current_stat_info.stat.st_size >= 8 * LPM_CHUNK
+      && fstat (fd, &output_stat) == 0 && S_ISREG (output_stat.st_mode))
+    {
+      unsigned i;
+      off_t chunks = (current_stat_info.stat.st_size - 1) / LPM_CHUNK + 1;
+      if (chunks < threads) threads = chunks;
+      writer.threads = threads;
+      for (i = 0; i < threads; ++i) {
+        writer.slots[i].fd = fd;
+        struct lpm_slot *slot = &writer.slots[i];
+        slot->data = xmalloc (LPM_CHUNK);
+        if (pthread_mutex_init (&slot->lock, NULL)
+            || pthread_cond_init (&slot->changed, NULL))
+          FATAL_ERROR ((0, 0, "cannot initialize parallel writer"));
+        slot->started = pthread_create (&slot->thread, NULL,
+                                        lpm_worker, slot) == 0;
+      }
+    }
   mv_begin_read (&current_stat_info);
   if (current_stat_info.is_sparse)
     sparse_extract_file (fd, &current_stat_info, &size);
@@ -1322,7 +1347,11 @@ extract_file (char *file_name, int typeflag)
 	if (written > size)
 	  written = size;
 	errno = 0;
-	count = blocking_write (fd, data_block->buffer, written);
+	if (writer.threads) {
+          lpm_submit (&writer, data_block->buffer, written);
+          count = written;
+        } else
+          count = blocking_write (fd, data_block->buffer, written);
 	size -= written;
 
 	set_next_block_after ((union block *)
@@ -1336,6 +1365,10 @@ extract_file (char *file_name, int typeflag)
 	  }
       }
 
+  if (writer.threads) {
+    int e = lpm_finish (&writer);
+    if (e) ERROR ((0, e, "parallel extraction: %s", file_name));
+  }
   skim_file (size, false);
 
   mv_end ();
