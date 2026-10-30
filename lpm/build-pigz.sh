@@ -30,20 +30,30 @@ fi
 if [ ! -d "$work_dir/zlib-ng-2.3.3" ]; then
  tar --no-same-owner -xf "$work_dir/zlib-ng-2.3.3.tar.gz" -C "$work_dir"
 fi
-mkdir -p "$work_dir/zlib-build" "$prefix/bin" "$prefix/share/licenses/pigz-zlib-ng"
-cd "$work_dir/zlib-build"
-# Optional ISA kernels stay enabled; generic binaries retain runtime dispatch.
-CFLAGS="${CFLAGS:--O3 -g} $architecture" \
- "$work_dir/zlib-ng-2.3.3/configure" --zlib-compat --static --prefix="$prefix"
-make -j"$jobs"
-make check
-make install
+mkdir -p "$prefix/bin" "$prefix/share/licenses/pigz-zlib-ng"
+cmake -S "$work_dir/zlib-ng-2.3.3" -B "$work_dir/zlib-ninja" -G Ninja \
+ -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$prefix" -DCMAKE_INSTALL_LIBDIR=lib \
+ -DZLIB_COMPAT=ON -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=ON -DWITH_GTEST=OFF \
+ -DWITH_OPTIM=ON -DWITH_RUNTIME_CPU_DETECTION=ON \
+ -DCMAKE_C_FLAGS="${CFLAGS:--O3 -g} $architecture"
+cmake --build "$work_dir/zlib-ninja" --parallel "$jobs"
+ctest --test-dir "$work_dir/zlib-ninja" --output-on-failure --parallel "$jobs"
+cmake --install "$work_dir/zlib-ninja"
+# Pigz has no upstream Meson files; provide a direct target for its C sources.
+cp "$source_dir/meson/pigz/meson.build" "$work_dir/pigz-2.8/meson.build"
+cp "$source_dir/meson/pigz/meson_options.txt" "$work_dir/pigz-2.8/meson_options.txt"
+cp "$source_dir/meson/pigz/smoke.py" "$work_dir/pigz-2.8/smoke.py"
+if [ -f "$work_dir/pigz-ninja/meson-private/coredata.dat" ]; then
+ meson setup --reconfigure "$work_dir/pigz-ninja" "$work_dir/pigz-2.8" \
+  --backend=ninja --prefix="$prefix" -Dzlib_prefix="$prefix" -Dcpu_profile="$profile"
+else
+ meson setup "$work_dir/pigz-ninja" "$work_dir/pigz-2.8" \
+  --backend=ninja --prefix="$prefix" -Dzlib_prefix="$prefix" -Dcpu_profile="$profile"
+fi
+meson compile -C "$work_dir/pigz-ninja" -j"$jobs"
+meson test -C "$work_dir/pigz-ninja" --print-errorlogs
+meson install -C "$work_dir/pigz-ninja"
 cd "$work_dir/pigz-2.8"
-make -j"$jobs" CC="${CC:-cc}" \
- CFLAGS="${CFLAGS:--O3 -g} $architecture -I$prefix/include" \
- LDFLAGS="${LDFLAGS:-}" LIBS="$prefix/lib/libz.a -lm -lpthread"
-make test
-cp pigz "$prefix/bin/pigz"
 cp README "$prefix/share/licenses/pigz-zlib-ng/pigz-README"
 cp "$work_dir/zlib-ng-2.3.3/LICENSE.md" "$prefix/share/licenses/pigz-zlib-ng/zlib-ng-LICENSE.md"
 printf '\nBuilt %s/bin/pigz\nUse: PATH="%s/bin:$PATH" tar -czf archive.tar.gz files\n' "$prefix" "$prefix"

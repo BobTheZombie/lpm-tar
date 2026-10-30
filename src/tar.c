@@ -2327,6 +2327,7 @@ decode_options (int argc, char **argv)
   struct tar_args args = TAR_ARGS_INITIALIZER (&loc);
 
   argp_version_setup ("tar", tar_authors);
+  lpm_gzip_backend_option = LPM_DEFAULT_GZIP_BACKEND;
 
   /* Set some default option values.  */
   args.backup_suffix_string = getenv ("SIMPLE_BACKUP_SUFFIX");

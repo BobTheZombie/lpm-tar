@@ -1,0 +1,3 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+option('zlib_prefix', type: 'string', description: 'Prefix containing the isolated static zlib-ng compat library')
+option('cpu_profile', type: 'combo', choices: ['generic', 'native', 'znver2', 'znver3', 'znver4', 'znver5'], value: 'generic')

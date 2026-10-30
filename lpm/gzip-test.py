@@ -6,7 +6,7 @@ pigz=shutil.which('pigz')
 gzip_bin=shutil.which('gzip')
 assert pigz and gzip_bin, 'Put pigz and gzip on PATH for integration tests'
 def run(args, *, env, data=None, good=True):
-    r=subprocess.run([binary,*args],input=data,stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=env)
+    r=subprocess.run([binary,'--gzip-backend=auto',*args],input=data,stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=env)
     assert (r.returncode==0)==good,(args,r.returncode,r.stderr.decode(errors='replace'))
     return r
 with tempfile.TemporaryDirectory() as td:

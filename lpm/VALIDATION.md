@@ -3,6 +3,39 @@
 Local host: Linux x86-64, AMD EPYC 9V74 virtual machine, 9 visible CPUs,
 glibc 2.39. This is not a physical Ryzen system.
 
+## Meson/Ninja build migration
+
+* Meson setup followed by direct Ninja compilation built tar, rmt, support
+  libraries, and Autotest helpers from individual C sources. Gnulib's shipped
+  configure probes remain in setup; no GNU Make compilation wrapper is used.
+* Four Meson core tests passed: dispatched/scalar checksums, extraction with
+  injected write faults, and gzip/pigz integration.
+* The upstream suite ran directly through Meson/Autotest with four workers:
+  244 cases, 218 executed, 215 passed, 3 failed, 26 skipped. Failures remain
+  90/104/106, the same baseline read-only-directory permission failures.
+* Generic build installed tar, rmt, shipped manuals and translations into a
+  temporary DESTDIR. A repeated Ninja compile reported no work to do.
+* A znver2 build with LTO enabled, `assembly=false`, `nls=false`, `rmt=false`,
+  `gzip_backend=gzip`, ACL/SELinux disabled, and upstream tests disabled built,
+  passed all four core tests, and staged an install without rmt. No handwritten
+  AVX2 kernel symbol remained. Its gzip default successfully bypassed a deliberately
+  failing pigz executable.
+* A failing `make` shim was placed first on PATH during configure/bootstrap,
+  compilation, tests and the optional codec builder. It was never invoked.
+  The bridge disables unused Make dependency generation and substitutes a no-op
+  for configure's unused Make capability checks.
+* The codec helper now uses CMake/Ninja for zlib-ng and a direct Meson/Ninja
+  target for pigz. All 69 zlib-ng CTest cases and the pigz round-trip smoke test
+  passed, including gzip, zlib, ZIP, block/thread settings and stream errors.
+* The most recent preceding revision, `b3b5a7480a71596c8144b9e837c4833b3c4117a3`,
+  passed GCC, Clang and accelerated-codec CI jobs:
+  https://github.com/BobTheZombie/lpm-tar/actions/runs/41077726262
+
+Current CI is migrated to Meson/Ninja and additionally covers required ACL/SELinux
+features, staged installation, and minimal build options. Its results should be
+checked separately from these local results. Cross builds are explicitly rejected;
+this migration retains Autoconf feature probes rather than reimplementing gnulib.
+
 ## Second optimization pass: assembly and gzip pipeline
 
 * Portable `-O3 -g -pthread` build and Zen 2 `-O3 -g -flto -pthread

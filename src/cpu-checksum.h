@@ -1,6 +1,6 @@
 /* LPM tar header checksums. GPL-3.0-or-later.
    The assembly reads exactly one 512-byte header, including unaligned input. */
-#if defined __x86_64__ && defined __GNUC__
+#if defined __x86_64__ && defined __GNUC__ && !defined LPM_TAR_NO_ASM
 __attribute__ ((target ("avx2"), noinline))
 static int
 lpm_unsigned_avx2 (unsigned char const *p)
@@ -43,7 +43,7 @@ lpm_header_unsigned (unsigned char const *p)
 {
   unsigned i;
   int sum = 0;
-#if defined __x86_64__ && defined __GNUC__
+#if defined __x86_64__ && defined __GNUC__ && !defined LPM_TAR_NO_ASM
   /* Only the serialized archive parser calls this dispatch function. */
   static int avx2 = -1;
   if (avx2 < 0)

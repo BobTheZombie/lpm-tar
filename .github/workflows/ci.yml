@@ -10,46 +10,57 @@ jobs:
         compiler: [gcc, clang]
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y build-essential clang llvm lld gettext libacl1-dev libattr1-dev texinfo pigz
-      - name: Generic optimized build
+      - run: sudo apt-get update && sudo apt-get install -y build-essential clang llvm lld meson ninja-build gettext libacl1-dev libattr1-dev libselinux1-dev pigz
+      - name: Meson setup and Ninja compilation
         run: |
           if [ "${{ matrix.compiler }}" = clang ]; then
             export CC=/usr/bin/clang AR=/usr/bin/llvm-ar RANLIB=/usr/bin/llvm-ranlib
-            export LDFLAGS='-flto -fuse-ld=/usr/bin/ld.lld'
+            export LDFLAGS='-fuse-ld=/usr/bin/ld.lld'
           else
             export CC=gcc
           fi
-          FORCE_UNSAFE_CONFIGURE=1 JOBS=4 lpm/build.sh generic
-      - name: Checksum differential tests
-        run: |
-          /usr/bin/${{ matrix.compiler }} -O3 lpm/checksum-test.c -o /tmp/checksum-test
-          /tmp/checksum-test
-          LPM_TAR_SCALAR=1 /tmp/checksum-test
-      - name: Extraction and write error regression tests
-        run: |
-          /usr/bin/${{ matrix.compiler }} -shared -fPIC lpm/write-faults.c -ldl -o /tmp/write-faults.so
-          LPM_TEST_INTERPOSER=/tmp/write-faults.so python3 lpm/test.py build-generic/src/tar
-      - name: Gzip and pigz integration
-        run: python3 lpm/gzip-test.py build-generic/src/tar
+          JOBS=4 lpm/build.sh generic -Dacl=enabled -Dselinux=enabled
+      - name: Core and pigz integration tests
+        run: meson test -C build-generic --suite core --print-errorlogs
       - name: GNU tar regression suite
-        run: make -C build-generic -j4 check
+        run: meson test -C build-generic --suite upstream --print-errorlogs
+      - name: Stage installation
+        run: |
+          meson install -C build-generic --destdir "$RUNNER_TEMP/lpm-install"
+          "$RUNNER_TEMP/lpm-install/usr/bin/tar" --version
+          test -x "$RUNNER_TEMP/lpm-install/usr/libexec/rmt"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-logs-${{ matrix.compiler }}
           path: |
+            build-generic/meson-logs/
+            build-generic/gnulib-config/config.log
+            build-generic/gnulib-config/configure-output.log
             build-generic/tests/testsuite.log
-            build-generic/config.log
-
+  meson-options:
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y build-essential meson ninja-build pigz
+      - name: Native profile without assembly, NLS, rmt or LTO
+        run: JOBS=4 lpm/build.sh native -Dassembly=false -Dnls=false -Drmt=false -Dgzip_backend=gzip -Dacl=disabled -Dselinux=disabled -Dupstream_tests=false -Db_lto=false
+      - run: meson test -C build-native --print-errorlogs
+      - name: Minimal install
+        run: |
+          meson install -C build-native --destdir "$RUNNER_TEMP/lpm-minimal"
+          "$RUNNER_TEMP/lpm-minimal/usr/bin/tar" --version
+          test ! -e "$RUNNER_TEMP/lpm-minimal/usr/libexec/rmt"
   accelerated-codec:
     timeout-minutes: 20
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y build-essential curl python3 texinfo
-      - name: Build and test isolated pigz plus zlib-ng
+      - run: sudo apt-get update && sudo apt-get install -y build-essential curl python3 meson ninja-build cmake
+      - name: Build zlib-ng with CMake/Ninja and pigz with Meson/Ninja
         run: JOBS=4 lpm/build-pigz.sh generic
-      - name: Build tar
+      - name: Build tar with Meson/Ninja
         run: JOBS=4 lpm/build.sh generic
       - name: Test accelerated gzip pipeline
         run: PATH="$PWD/build-codecs-generic/prefix/bin:$PATH" python3 lpm/gzip-test.py build-generic/src/tar
